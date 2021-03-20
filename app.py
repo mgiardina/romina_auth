@@ -20,10 +20,7 @@ from pages.auth_pages import (
     change_password,
 )
 
-# sumamos el logo de aws
 AWS_LOGO = "https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Amazon_Web_Services_Logo.svg/1024px-Amazon_Web_Services_Logo.svg.png"
-
-# los controles de busqueda
 search_bar = dbc.Row(
     [
         dbc.Col(dbc.Input(type="search", placeholder="Search")),
@@ -102,8 +99,6 @@ app.layout = html.Div(
     ]
 )
 
-# Este callback se encarga de toda la redireccion
-
 
 @app.callback(
     Output('page-content', 'children'),
@@ -143,9 +138,6 @@ def router(pathname):
 
     return login.layout()
 
-
-# este callback chequea si el usuario esta loggeado o no
-# si esta autenticado se muestra la info de perfil
 @app.callback(
     Output('user-name', 'children'),
     [Input('page-content', 'children')])
@@ -154,9 +146,6 @@ def profile_link(content):
         return html.Div(current_user.first)
     else:
         return ''
-
-# este callback muestra Logout si el usuario esta loggeado o Login si el usuario no se loggeo aun
-
 
 @app.callback(
     [Output('user-action', 'children'),
