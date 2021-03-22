@@ -44,7 +44,7 @@ header = dbc.Navbar(
                         html.Img(src=AWS_LOGO, height="30px",
                                  className="mt-2 mr-2"),
                         dbc.NavbarBrand(
-                            "Dash Auth App by Romina Mezher", className="ml-1", style={"text-decoration" : "none"}),
+                            "Dash Toolkit by Romina Mezher", className="ml-1", style={"text-decoration" : "none"}),
                     ],
                     align="left",
                     no_gutters=True,
@@ -56,7 +56,7 @@ header = dbc.Navbar(
                     # TODO temporary solution
                     dbc.NavItem(dbc.NavLink(id='user-name', href='/profile')),
                     dbc.NavItem(dbc.NavLink("Home", href="/home")),
-                    dbc.NavItem(dbc.NavLink("Romi Page", href="/romi")),
+                    dbc.NavItem(dbc.NavLink("Blob Management", href="/romi")),
                     dbc.NavItem(dbc.NavLink(
                         'Login', id='user-action', href='Login')),
                     dbc.Collapse(search_bar, id="navbar-collapse", navbar=True),                        

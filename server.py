@@ -15,7 +15,7 @@ app = dash.Dash(
 
 server = app.server
 app.config.suppress_callback_exceptions = True
-app.title = 'Dash Authentication App by Romina Mezher'
+app.title = 'Dash Toolkit by Romina Mezher'
 server.config.update(
     SECRET_KEY='#tolkienrowlingstephenkingdrikingbeertogether$20',
     SQLALCHEMY_DATABASE_URI=config.get('database', 'con'),
