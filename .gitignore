@@ -3,3 +3,7 @@
 ################################################################################
 
 /.vs/romina_blobmanagement/v16
+/utilities/__pycache__
+/pages/__pycache__
+/pages/auth_pages/__pycache__
+/__pycache__

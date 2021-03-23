@@ -51,7 +51,7 @@ def layout():
                                     [
                                         html.H2("Refresh Blob List"),
                                         dbc.Button(
-                                            "Refresh", id="btn-refresh",color="success", className="mt-3")
+                                            "Refresh", id="btn-refresh", color="success", className="mt-3")
                                     ]
                                 ), className="mt-3"
                             ),
@@ -63,7 +63,7 @@ def layout():
                                     ]
                                 ), className="mt-3"
                             )
-                        ],label="Current Blob List"), 
+                        ], label="Current Blob List"),
                         dbc.Tab(children=[
                             dbc.Card(
                                 dbc.CardBody(
@@ -171,11 +171,26 @@ def uploaded_files():
 
 
 def file_download_link(filename):
-    """Create a Plotly Dash 'A' element that downloads a file from the app."""
     location = "https://rominamarianoblobjob.s3.us-east-2.amazonaws.com/{}".format(
         urlquote(filename))
     return html.A(filename, href=location)
 
+
+@ app.callback(
+    Output("file-list", "children"),
+    Input('btn-refresh', 'n_clicks')
+)
+def refresh_list(btn1):
+    # actualizo la lista de los blobs que esta actualmente activa en la solapa de Current blobs
+    files = uploaded_files()
+
+    if len(files) == 0:
+        returnedHtml = [html.Li("No blobs yet!")]
+    else:
+        returnedHtml = [html.Li(file_download_link(filename))
+                        for filename in files]
+
+    return (returnedHtml)
 
 @ app.callback(
     [Output("file-list-uploaded", "children"),
