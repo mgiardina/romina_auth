@@ -45,8 +45,8 @@ def layout():
                 html.Br(),
                 dbc.Tabs(
                     [
-                        dbc.Tab(children=[
-                            dbc.Card(
+                        dbc.Tab(children=[dbc.Row(
+                            [dbc.Col(dbc.Card(
                                 dbc.CardBody(
                                     [
                                         html.H2("Refresh Blob List"),
@@ -54,7 +54,18 @@ def layout():
                                             "Refresh", id="btn-refresh", color="success", className="mt-3")
                                     ]
                                 ), className="mt-3"
-                            ),
+                            ),md=6),
+                            dbc.Col(dbc.Card(
+                                dbc.CardBody(
+                                    [
+                                        html.H2("Search Blob List"), 
+                                        dbc.Input(id="search_file",type="search", placeholder="Search"),
+                                        dbc.Button("Search", id="search_button",color="primary", className="mt-3"),
+                                        html.Div(id="search_output"),
+                                    ],
+                                ), className="mt-3"
+                            ),md=6),
+                            ],),                            
                             dbc.Card(
                                 dbc.CardBody(
                                     [
@@ -62,7 +73,7 @@ def layout():
                                             id="file-list", children=list_files())
                                     ]
                                 ), className="mt-3"
-                            )
+                            ),
                         ], label="Current Blob List"),
                         dbc.Tab(children=[
                             dbc.Card(
@@ -254,3 +265,30 @@ def delete_blob(btn1, value):
                             for filename in files]
 
         return (returnedHtml, dbc.Toast([html.P("Blob deleted OK")], header=("Blob " + value), icon="danger", dismissable=True, style={"position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "red", "color": "white"}), optionList)
+
+
+#### Prueba del search ####
+@app.callback(
+    Output('search_output', 'children'),
+    Input('search_button', 'n_clicks'),
+    State('search_file', 'value'),
+)
+
+def update_search(n_clicks,input1):
+    response = client.list_objects(Bucket=BUCKET)
+        
+    for blob in response['Contents']:
+        
+        if (blob['Key'].find(input1) != -1):
+            returnedHtml = u'''File is "{}"'''.format(input1)
+            returnedToast = dbc.Toast([html.P("Success")], header=("Blob(s) search OK"), icon="success", dismissable=True, 
+            style={"background-color": "green", "color": "white"})
+        else:
+            returnedHtml = u'''"No blobs!"'''
+            returnedToast = dbc.Toast([html.P("No Matches")], header=("No Blob(s)"), icon="danger", dismissable=True, 
+            style={"background-color": "red", "color": "white"})
+
+
+
+    return (returnedHtml,returnedToast)
+    

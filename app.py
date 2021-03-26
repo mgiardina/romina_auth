@@ -59,7 +59,7 @@ header = dbc.Navbar(
                     dbc.NavItem(dbc.NavLink("Blob Management", href="/romi")),
                     dbc.NavItem(dbc.NavLink(
                         'Login', id='user-action', href='Login')),
-                    dbc.Collapse(search_bar, id="navbar-collapse", navbar=True),                        
+                    dbc.Collapse(search_bar, id="navbar-collapse", navbar=True),
                 ]
             )
         ]
@@ -156,7 +156,6 @@ def user_logout(input1):
         return 'Logout', '/logout'
     else:
         return 'Login', '/login'
-
 
 if __name__ == '__main__':
     app.run_server(debug=True)
