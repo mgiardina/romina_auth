@@ -11,6 +11,7 @@ from pages import (
     home,
     profile,
     romi,
+    research
 )
 
 from pages.auth_pages import (
@@ -56,7 +57,8 @@ header = dbc.Navbar(
                     # TODO temporary solution
                     dbc.NavItem(dbc.NavLink(id='user-name', href='/profile')),
                     dbc.NavItem(dbc.NavLink("Home", href="/home")),
-                    dbc.NavItem(dbc.NavLink("Blob Management", href="/romi")),
+                    dbc.NavItem(dbc.NavLink("Blobs", href="/romi")),
+                    dbc.NavItem(dbc.NavLink("Research", href="/research")),
                     dbc.NavItem(dbc.NavLink(
                         'Login', id='user-action', href='Login')),
                     dbc.Collapse(search_bar, id="navbar-collapse", navbar=True),
@@ -132,6 +134,9 @@ def router(pathname):
     elif pathname == '/romi':
         if current_user.is_authenticated:
             return romi.layout()
+    elif pathname == '/research':
+        if current_user.is_authenticated:
+            return research.layout()            
 
     if current_user.is_authenticated:
         return home.layout()
