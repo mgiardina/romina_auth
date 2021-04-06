@@ -12,6 +12,7 @@ from dash.dependencies import Output, Input, State
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
+import dash
 
 BUCKET = 'rominamarianoblobjob'
 
@@ -49,31 +50,15 @@ def layout():
                             [dbc.Col(dbc.Card(
                                 dbc.CardBody(
                                     [
-                                        html.H2("Refresh Blob List"),
+                                        html.H2("Search Blob List"),
+                                        dbc.Input(
+                                            id="search_file", type="search", placeholder="Search"),
                                         dbc.Button(
-                                            "Refresh", id="btn-refresh", color="success", className="mt-3")
-                                    ]
-                                ), className="mt-3"
-                            ),md=6),
-                            dbc.Col(dbc.Card(
-                                dbc.CardBody(
-                                    [
-                                        html.H2("Search Blob List"), 
-                                        dbc.Input(id="search_file",type="search", placeholder="Search"),
-                                        dbc.Button("Search", id="search_button",color="primary", className="mt-3"),
-                                        html.Div(id="search_output"),
+                                            "Search", id="btnSearch", color="primary", className="mt-3")
                                     ],
                                 ), className="mt-3"
-                            ),md=6),
-                            ],),                            
-                            dbc.Card(
-                                dbc.CardBody(
-                                    [
-                                        html.H2("Current Blob List"), html.Ul(
-                                            id="file-list", children=list_files())
-                                    ]
-                                ), className="mt-3"
-                            ),
+                            ), md=12),
+                            ],)
                         ], label="Current Blob List"),
                         dbc.Tab(children=[
                             dbc.Card(
@@ -81,7 +66,7 @@ def layout():
                                     [
                                         html.H2("Upload your file"),
                                         dcc.Upload(
-                                            id="upload-data",
+                                            id="btnUpload",
                                             children=html.Div(
                                                 ["Drag and drop or click to select a file to upload."]
                                             ),
@@ -99,16 +84,7 @@ def layout():
                                         ),
                                     ]
                                 ), className="mt-3"
-                            ),
-                            dbc.Card(
-                                dbc.CardBody(
-                                    [
-                                        html.H2("Current Blob List"), html.Ul(
-                                            id="file-list-uploaded", children=list_files())
-                                    ]
-                                ), className="mt-3"
-                            ),
-                            html.Div(id="toast-upload-container"),
+                            )
                         ], label="Upload your File"),
                         dbc.Tab(children=[
                             dbc.Card(
@@ -121,22 +97,22 @@ def layout():
                                             placeholder="select blob to delete",
                                         ),
                                         dbc.Button(
-                                            "Delete Blob", id="btn-delete", color="danger", className="mt-3", style={"float": "right"}),
+                                            "Delete Blob", id="btnDelete", color="danger", className="mt-3", style={"float": "right"}),
 
                                     ]
                                 ), className="mt-3"
                             ),
-                            dbc.Card(
-                                dbc.CardBody(
-                                    [
-                                        html.H2("Current Blob List"), html.Ul(
-                                            id="file-list-deleted", children=list_files())
-                                    ]
-                                ), className="mt-3"
-                            ),
-                            html.Div(id="toast-delete-container"),
                         ], label="Delete blobs")
                     ]
+                ),
+                html.Div(id="toastContainer"),
+                dbc.Card(
+                    dbc.CardBody(
+                        [
+                            html.H2("Current Blob List"), html.Ul(
+                                id="file-list", children=list_files())
+                        ]
+                    ), className="mt-3"
                 )
             ]
         )
@@ -186,109 +162,77 @@ def file_download_link(filename):
         urlquote(filename))
     return html.A(filename, href=location)
 
+def getBlobs(pattern):
+    files = []
+    response = client.list_objects(Bucket=BUCKET)
 
-@ app.callback(
-    Output("file-list", "children"),
-    Input('btn-refresh', 'n_clicks')
-)
-def refresh_list(btn1):
-    # actualizo la lista de los blobs que esta actualmente activa en la solapa de Current blobs
-    files = uploaded_files()
+    if (len(pattern) == 0):
+        for blob in response['Contents']:
+            files.append(blob['Key'])
+    else:
+        for blob in response['Contents']:
+            if (blob['Key'].find(pattern) != -1):
+                files.append(blob['Key'])
 
-    if len(files) == 0:
-        returnedHtml = [html.Li("No blobs yet!")]
+    return files
+
+
+@app.callback([Output('file-list', 'children'), Output('toastContainer', 'children'), Output('data-dropdown', 'options')],
+              [Input('btnSearch', 'n_clicks'),
+               Input("btnUpload", "filename"), Input("btnUpload", "contents"),
+               Input('btnDelete', 'n_clicks'), State('data-dropdown', 'value'),
+               State('search_file', 'value')])
+def display(btnSearch, uploaded_filenames, uploaded_file_contents, btnDelete, deleteKey, pattern):
+
+    context = dash.callback_context
+
+    buttonClicked = context.triggered[0]['prop_id'].split('.')[0]
+    blobCount = 0
+
+    if (buttonClicked == "btnSearch"):
+        if (pattern):
+
+            foundedBlobs = getBlobs(pattern)
+            blobCount = len(foundedBlobs)
+
+            if (blobCount > 0):
+                returnedToast = dbc.Toast([html.P("Success")], header=("Blobs founded"), icon="success", dismissable=True, style={
+                    "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})
+            else:
+                returnedToast = dbc.Toast([html.P("No Matches")], header=("No blobs founded"), icon="danger", dismissable=True, style={
+                    "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "red", "color": "white"})
+        else:
+            pattern = ""
+            returnedToast = dbc.Toast([html.P("Information")], header=("Please enter a pattern"), icon="danger", dismissable=True, style={
+                "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "red", "color": "white"})
+    else:
+        if (buttonClicked == "btnUpload"):
+
+            if uploaded_filenames is not None and uploaded_file_contents is not None:
+                for name, data in zip(uploaded_filenames, uploaded_file_contents):
+                    save_file(name, data)                  
+
+            pattern = ""   
+            returnedToast = dbc.Toast([html.P("Success")], header=("Blobs uploaded"), icon="success", dismissable=True, style={
+                "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})                  
+        else:
+            if deleteKey:
+                client.delete_object(Bucket=BUCKET, Key=deleteKey)
+                pattern = ""   
+                returnedToast = dbc.Toast([html.P("Success")], header=("Blob deleted"), icon="success", dismissable=True, style={
+                "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})                      
+
+    blobs = getBlobs(pattern)
+
+    if len(blobs) == 0:
+        returnedHtml = [html.Li("No blobs founded!")]
     else:
         returnedHtml = [html.Li(file_download_link(filename))
-                        for filename in files]
+                        for filename in blobs]
 
-    return (returnedHtml)
-
-@ app.callback(
-    [Output("file-list-uploaded", "children"),
-     Output("toast-upload-container", "children")],
-    [Input("upload-data", "filename"), Input("upload-data", "contents")],
-)
-def upload_blob(uploaded_filenames, uploaded_file_contents):
-
-    if uploaded_filenames is not None and uploaded_file_contents is not None:
-        for name, data in zip(uploaded_filenames, uploaded_file_contents):
-            save_file(name, data)
-
-        # me traigo la lista de los blobs que quedaron para popular el dropdown de nuevo actualizado
-        optionList = []
-        response = client.list_objects(Bucket=BUCKET)
-        for blob in response['Contents']:
-            optionList.append({'label': blob['Key'], 'value': blob['Key']})
-
-        # actualizo la lista de los blobs que esta actualmente activa en la solapa de Upload
-        files = uploaded_files()
-
-        if len(files) == 0:
-            returnedHtml = [html.Li("No blobs yet!")]
-        else:
-            returnedHtml = [html.Li(file_download_link(filename))
-                            for filename in files]
-
-        return (returnedHtml, dbc.Toast([html.P("Operation finished Succesfully")], header=("Blob(s) uploaded OK"), icon="success", dismissable=True, style={"position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"}))
-
-# hay 3 outputs
-# 1) la lista de los blobs
-# 2) la div donde metemos el toast
-# 3) la lista que se bindea al dropdown
-
-
-@ app.callback(
-    [Output("file-list-deleted", "children"),
-     Output("toast-delete-container", "children"),
-     Output('data-dropdown', 'options')],
-    Input('btn-delete', 'n_clicks'),
-    state=[State(component_id='data-dropdown', component_property='value')]
-)
-def delete_blob(btn1, value):
-    if value:
-        # voy directo a eliminar el blob, no hace falta recorrer nada
-        client.delete_object(Bucket=BUCKET, Key=value)
-
-        # me traigo la lista de los blobs que quedaron para popular el dropdown de nuevo actualizado
-        optionList = []
-        response = client.list_objects(Bucket=BUCKET)
-        for blob in response['Contents']:
-            optionList.append({'label': blob['Key'], 'value': blob['Key']})
-
-        # actualizo la lista de los blobs que esta actualmente activa en la solapa de Delete
-        files = uploaded_files()
-
-        if len(files) == 0:
-            returnedHtml = [html.Li("No blobs yet!")]
-        else:
-            returnedHtml = [html.Li(file_download_link(filename))
-                            for filename in files]
-
-        return (returnedHtml, dbc.Toast([html.P("Blob deleted OK")], header=("Blob " + value), icon="danger", dismissable=True, style={"position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "red", "color": "white"}), optionList)
-
-
-#### Prueba del search ####
-@app.callback(
-    Output('search_output', 'children'),
-    Input('search_button', 'n_clicks'),
-    State('search_file', 'value'),
-)
-
-def update_search(n_clicks,input1):
+    optionList = []
     response = client.list_objects(Bucket=BUCKET)
-        
     for blob in response['Contents']:
-        
-        if (blob['Key'].find(input1) != -1):
-            returnedHtml = u'''File is "{}"'''.format(input1)
-            returnedToast = dbc.Toast([html.P("Success")], header=("Blob(s) search OK"), icon="success", dismissable=True, 
-            style={"background-color": "green", "color": "white"})
-        else:
-            returnedHtml = u'''"No blobs!"'''
-            returnedToast = dbc.Toast([html.P("No Matches")], header=("No Blob(s)"), icon="danger", dismissable=True, 
-            style={"background-color": "red", "color": "white"})
+        optionList.append({'label': blob['Key'], 'value': blob['Key']})                        
 
-
-
-    return (returnedHtml,returnedToast)
-    
+    return(returnedHtml, returnedToast, optionList)
