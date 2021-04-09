@@ -54,7 +54,9 @@ def layout():
                                         dbc.Input(
                                             id="search_file", type="search", placeholder="Search"),
                                         dbc.Button(
-                                            "Search", id="btnSearch", color="primary", className="mt-3")
+                                            "Search", id="btnSearch", color="primary", className="mt-3"),
+                                        dbc.Button(
+                                            "Clear", id="btnClear", color="secondary", className="mt-3 ml-3")    
                                     ],
                                 ), className="mt-3"
                             ), md=12),
@@ -65,6 +67,11 @@ def layout():
                                 dbc.CardBody(
                                     [
                                         html.H2("Upload your file"),
+                                        dcc.Dropdown(
+                                            id="upload-dropdown",
+                                            options=list_folders(),
+                                            placeholder="select folder to upload", style= {"margin": "10px"}
+                                        ),
                                         dcc.Upload(
                                             id="btnUpload",
                                             children=html.Div(
@@ -92,6 +99,11 @@ def layout():
                                     [
                                         html.H2("Delete blob"),
                                         dcc.Dropdown(
+                                            id="deleteFolder-dropdown",
+                                            options=list_folders(),
+                                            placeholder="select folder", className = "mb-3",
+                                        ),
+                                        dcc.Dropdown(
                                             id="data-dropdown",
                                             options=list_blobs(),
                                             placeholder="select blob to delete",
@@ -102,10 +114,23 @@ def layout():
                                     ]
                                 ), className="mt-3"
                             ),
-                        ], label="Delete blobs")
+                        ], label="Delete blobs"),
+                        dbc.Tab(children=[
+                            dbc.Card(
+                                dbc.CardBody(
+                                    [
+                                        html.H2("Folder management"),
+                                        dbc.Input(id="txtFolderName", placeholder="Enter folder name...", type="text"),
+                                        dbc.Button("Create Folder", id="btnFolder", color="primary", className="mt-3", style={"float": "right"}),
+
+                                    ]
+                                ), className="mt-3"
+                            ),
+                        ], label="Create your Folder")                        
                     ]
                 ),
                 html.Div(id="toastContainer"),
+                html.Div(id="FolderToastContainer"),
                 dbc.Card(
                     dbc.CardBody(
                         [
@@ -138,6 +163,11 @@ def list_files():
     else:
         return [html.Li(file_download_link(filename)) for filename in files]
 
+def list_folders():
+    
+    folders = []
+
+    return folders    
 
 def save_file(name, content):
     data = content.encode("utf8").split(b";base64,")[1]
@@ -177,12 +207,27 @@ def getBlobs(pattern):
     return files
 
 
+@app.callback(Output('FolderToastContainer', 'children'), 
+            [Input('btnFolder', 'n_clicks'),
+            State('txtFolderName', 'value')])
+
+def create_folder(n_clicks,value):
+
+    s3.Bucket(BUCKET).put_object(Key= value + '/')
+
+    returnedToast = dbc.Toast([html.P("Folder " + value + " created")], header=("Success"), icon="success", dismissable=True, style={
+                "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})                  
+    
+    return returnedToast
+
+
+
 @app.callback([Output('file-list', 'children'), Output('toastContainer', 'children'), Output('data-dropdown', 'options')],
-              [Input('btnSearch', 'n_clicks'),
-               Input("btnUpload", "filename"), Input("btnUpload", "contents"),
-               Input('btnDelete', 'n_clicks'), State('data-dropdown', 'value'),
-               State('search_file', 'value')])
-def display(btnSearch, uploaded_filenames, uploaded_file_contents, btnDelete, deleteKey, pattern):
+              [Input('btnSearch', 'n_clicks'), Input('btnClear', 'n_clicks'),
+               Input('btnUpload', 'filename'), Input('btnUpload', 'contents'),
+               Input('btnDelete', 'n_clicks'), 
+               State('data-dropdown', 'value'),State('search_file', 'value')])
+def display(btnSearch, btnClear,uploaded_filenames, uploaded_file_contents, btnDelete, deleteKey, pattern):
 
     context = dash.callback_context
 
@@ -196,7 +241,7 @@ def display(btnSearch, uploaded_filenames, uploaded_file_contents, btnDelete, de
             blobCount = len(foundedBlobs)
 
             if (blobCount > 0):
-                returnedToast = dbc.Toast([html.P("Success")], header=("Blobs founded"), icon="success", dismissable=True, style={
+                returnedToast = dbc.Toast([html.P(str(blobCount) + " Blobs founded")], header=("Success"), icon="success", dismissable=True, style={
                     "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})
             else:
                 returnedToast = dbc.Toast([html.P("No Matches")], header=("No blobs founded"), icon="danger", dismissable=True, style={
@@ -205,22 +250,35 @@ def display(btnSearch, uploaded_filenames, uploaded_file_contents, btnDelete, de
             pattern = ""
             returnedToast = dbc.Toast([html.P("Information")], header=("Please enter a pattern"), icon="danger", dismissable=True, style={
                 "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "red", "color": "white"})
-    else:
-        if (buttonClicked == "btnUpload"):
+
+    if (buttonClicked == "btnUpload"):
 
             if uploaded_filenames is not None and uploaded_file_contents is not None:
                 for name, data in zip(uploaded_filenames, uploaded_file_contents):
                     save_file(name, data)                  
+                
+            filesCount = len(uploaded_filenames)
+            message = "Blob " + name + " uploaded"
+            
+            if (filesCount > 1):
+                message = str(filesCount) + " Blobs uploaded"
 
             pattern = ""   
-            returnedToast = dbc.Toast([html.P("Success")], header=("Blobs uploaded"), icon="success", dismissable=True, style={
+            returnedToast = dbc.Toast([html.P(message)], header=("Success"), icon="success", dismissable=True, style={
                 "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})                  
-        else:
-            if deleteKey:
-                client.delete_object(Bucket=BUCKET, Key=deleteKey)
-                pattern = ""   
-                returnedToast = dbc.Toast([html.P("Success")], header=("Blob deleted"), icon="success", dismissable=True, style={
+    
+    if (buttonClicked == "btnClear"):
+        pattern = ""   
+        returnedToast = dbc.Toast([html.P("Search Clearer")], header=("Success"), icon="success", dismissable=True, style={
+            "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})          
+    
+    if (buttonClicked == "btnDelete"):
+        if deleteKey:
+            client.delete_object(Bucket=BUCKET, Key=deleteKey)
+            pattern = ""   
+            returnedToast = dbc.Toast([html.P("Blob " + deleteKey + " deleted")], header=("Success"), icon="success", dismissable=True, style={
                 "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})                      
+
 
     blobs = getBlobs(pattern)
 
