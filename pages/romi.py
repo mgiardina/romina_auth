@@ -68,7 +68,7 @@ def layout():
                                     [
                                         html.H2("Upload your file"),
                                         dcc.Dropdown(
-                                            id="upload-dropdown",
+                                            id="ddl-folder",
                                             options=list_folders(),
                                             placeholder="select folder to upload", style= {"margin": "10px"}
                                         ),
@@ -131,6 +131,7 @@ def layout():
                 ),
                 html.Div(id="toastContainer"),
                 html.Div(id="FolderToastContainer"),
+                html.Div(id="OutputTest"),
                 dbc.Card(
                     dbc.CardBody(
                         [
@@ -149,10 +150,11 @@ def layout():
 
 def list_blobs():
     response = client.list_objects(Bucket=BUCKET)
-
+   
     optionList = []
     for blob in response['Contents']:
         optionList.append({'label': blob['Key'], 'value': blob['Key']})
+    
     return optionList
 
 
@@ -164,8 +166,13 @@ def list_files():
         return [html.Li(file_download_link(filename)) for filename in files]
 
 def list_folders():
-    
+
     folders = []
+    folders.append({'label': '/', 'value': 'root'})
+
+    result = client.list_objects(Bucket=BUCKET, Delimiter='/')
+    for folder in result.get('CommonPrefixes'):
+        folders.append({'label': folder['Prefix'].replace('/',''), 'value': folder['Prefix']})
 
     return folders    
 
@@ -221,6 +228,26 @@ def create_folder(n_clicks,value):
     return returnedToast
 
 
+@app.callback(Output('OutputTest','children'),
+                [Input('ddl-folder','value'),State('ddl-folder','value')])
+
+def select_folder(value,selFolder):
+
+    files = []
+    response = client.list_objects(Bucket=BUCKET)
+
+    if (selFolder == 'root'):
+        for blob in response['Contents']:
+            if (blob['Key'].find('/') == -1):
+                files.append(blob['Key'])
+    else:
+        for blob in response['Contents']:
+            if (blob['Key'].find(selFolder) != -1):
+                files.append(blob['Key'])
+
+    print(files)
+    
+    return ''
 
 @app.callback([Output('file-list', 'children'), Output('toastContainer', 'children'), Output('data-dropdown', 'options')],
               [Input('btnSearch', 'n_clicks'), Input('btnClear', 'n_clicks'),
