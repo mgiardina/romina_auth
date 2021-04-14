@@ -104,7 +104,7 @@ def layout():
                                             placeholder="select folder", className = "mb-3",
                                         ),
                                         dcc.Dropdown(
-                                            id="data-dropdown",
+                                            id="ddl-delete",
                                             options=list_blobs(),
                                             placeholder="select blob to delete",
                                         ),
@@ -176,11 +176,17 @@ def list_folders():
 
     return folders    
 
-def save_file(name, content):
-    data = content.encode("utf8").split(b";base64,")[1]
+def save_file(folderName,name, content):
 
-    s3.Bucket(BUCKET).put_object(Key=name, Body=base64.decodebytes(data))
-    s3.ObjectAcl(BUCKET, name).put(ACL='public-read')
+    data = content.encode("utf8").split(b";base64,")[1]
+ 
+    finalName = folderName + name
+
+    if (folderName == 'root'):
+        finalName = name
+        
+    s3.Bucket(BUCKET).put_object(Key=finalName, Body=base64.decodebytes(data))
+    s3.ObjectAcl(BUCKET, finalName).put(ACL='public-read')
 
 
 def uploaded_files():
@@ -238,24 +244,22 @@ def select_folder(value,selFolder):
 
     if (selFolder == 'root'):
         for blob in response['Contents']:
-            if (blob['Key'].find('/') == -1):
+            if (blob['Key'].find('/') == -1):  # No lo encontro
                 files.append(blob['Key'])
     else:
         for blob in response['Contents']:
             if (blob['Key'].find(selFolder) != -1):
                 files.append(blob['Key'])
-
-    print(files)
     
     return ''
 
-@app.callback([Output('file-list', 'children'), Output('toastContainer', 'children'), Output('data-dropdown', 'options')],
+@app.callback([Output('file-list', 'children'), Output('toastContainer', 'children'), Output('ddl-delete', 'options')],
               [Input('btnSearch', 'n_clicks'), Input('btnClear', 'n_clicks'),
                Input('btnUpload', 'filename'), Input('btnUpload', 'contents'),
                Input('btnDelete', 'n_clicks'), 
-               State('data-dropdown', 'value'),State('search_file', 'value')])
-def display(btnSearch, btnClear,uploaded_filenames, uploaded_file_contents, btnDelete, deleteKey, pattern):
-
+               State('ddl-delete', 'value'),State('search_file', 'value'),State('ddl-folder','value')])
+def display(btnSearch, btnClear,uploaded_filenames, uploaded_file_contents, btnDelete,deleteKey, pattern,selFolder):
+    
     context = dash.callback_context
 
     buttonClicked = context.triggered[0]['prop_id'].split('.')[0]
@@ -282,7 +286,7 @@ def display(btnSearch, btnClear,uploaded_filenames, uploaded_file_contents, btnD
 
             if uploaded_filenames is not None and uploaded_file_contents is not None:
                 for name, data in zip(uploaded_filenames, uploaded_file_contents):
-                    save_file(name, data)                  
+                    save_file(selFolder,name, data)                  
                 
             filesCount = len(uploaded_filenames)
             message = "Blob " + name + " uploaded"

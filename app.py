@@ -84,7 +84,8 @@ footer = dbc.Navbar(
     ],
     color="dark",
     dark=True,
-    fixed="bottom"
+    fixed="bottom",
+    style={"position":"relative"}
 )
 
 app.layout = html.Div(
