@@ -51,6 +51,11 @@ def layout():
                                 dbc.CardBody(
                                     [
                                         html.H2("Search Blob List"),
+                                        dcc.Dropdown(
+                                            id="searchFolder-dropdown",
+                                            options=list_folders(),
+                                            placeholder="select folder", className = "mb-3",
+                                        ),
                                         dbc.Input(
                                             id="search_file", type="search", placeholder="Search"),
                                         dbc.Button(
@@ -284,31 +289,38 @@ def display(btnSearch, btnClear,uploaded_filenames, uploaded_file_contents, btnD
 
     if (buttonClicked == "btnUpload"):
 
-            if uploaded_filenames is not None and uploaded_file_contents is not None:
-                for name, data in zip(uploaded_filenames, uploaded_file_contents):
-                    save_file(selFolder,name, data)                  
-                
-            filesCount = len(uploaded_filenames)
-            message = "Blob " + name + " uploaded"
-            
-            if (filesCount > 1):
-                message = str(filesCount) + " Blobs uploaded"
-
             pattern = ""   
-            returnedToast = dbc.Toast([html.P(message)], header=("Success"), icon="success", dismissable=True, style={
-                "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})                  
-    
+            if (selFolder):
+                if uploaded_filenames is not None and uploaded_file_contents is not None:
+                    for name, data in zip(uploaded_filenames, uploaded_file_contents):
+                        save_file(selFolder,name, data)                  
+                
+                filesCount = len(uploaded_filenames)
+                message = "Blob " + name + " uploaded"
+            
+                if (filesCount > 1):
+                    message = str(filesCount) + " Blobs uploaded"
+
+                returnedToast = dbc.Toast([html.P(message)], header=("Success"), icon="success", dismissable=True, style={
+                    "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})                  
+            else:
+                returnedToast = dbc.Toast([html.P("You must select a folder")], header=("No folder selected"), icon="danger", dismissable=True, style={
+                    "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "red", "color": "white"})
+
     if (buttonClicked == "btnClear"):
         pattern = ""   
         returnedToast = dbc.Toast([html.P("Search Clearer")], header=("Success"), icon="success", dismissable=True, style={
             "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})          
     
     if (buttonClicked == "btnDelete"):
+        pattern = ""
         if deleteKey:
             client.delete_object(Bucket=BUCKET, Key=deleteKey)
-            pattern = ""   
             returnedToast = dbc.Toast([html.P("Blob " + deleteKey + " deleted")], header=("Success"), icon="success", dismissable=True, style={
                 "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})                      
+        else:
+            returnedToast = dbc.Toast([html.P("You must select a blob")], header=("No blob selected"), icon="danger", dismissable=True, style={
+                "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "red", "color": "white"})
 
 
     blobs = getBlobs(pattern)
