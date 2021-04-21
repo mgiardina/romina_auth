@@ -52,7 +52,7 @@ def layout():
                                     [
                                         html.H2("Search Blob List"),
                                         dcc.Dropdown(
-                                            id="searchFolder-dropdown",
+                                            id="ddl-searchFolder",
                                             options=list_folders(),
                                             placeholder="select folder", className = "mb-3",
                                         ),
@@ -104,13 +104,12 @@ def layout():
                                     [
                                         html.H2("Delete blob"),
                                         dcc.Dropdown(
-                                            id="deleteFolder-dropdown",
+                                            id="ddl-folderDelete",
                                             options=list_folders(),
                                             placeholder="select folder", className = "mb-3",
                                         ),
                                         dcc.Dropdown(
                                             id="ddl-delete",
-                                            options=list_blobs(),
                                             placeholder="select blob to delete",
                                         ),
                                         dbc.Button(
@@ -258,11 +257,30 @@ def select_folder(value,selFolder):
     
     return ''
 
-@app.callback([Output('file-list', 'children'), Output('toastContainer', 'children'), Output('ddl-delete', 'options')],
+@app.callback(Output('ddl-delete','options'),
+                [Input('ddl-folderDelete','value'),State('ddl-folderDelete','value')])
+
+def delete_from_folder(value,selFolder):
+
+    optionList = []
+    response = client.list_objects(Bucket=BUCKET)
+
+    if (selFolder == 'root'):
+        for blob in response['Contents']:
+            if (blob['Key'].find('/') == -1):  # No lo encontro
+                optionList.append({'label': blob['Key'].replace(selFolder,''), 'value': blob['Key']})  
+    else:
+        for blob in response['Contents']:
+            if (blob['Key'].find(selFolder) != -1):
+                optionList.append({'label': blob['Key'].replace(selFolder,''), 'value': blob['Key']})  
+                    
+    return optionList
+
+@app.callback([Output('file-list', 'children'), Output('toastContainer', 'children')],
               [Input('btnSearch', 'n_clicks'), Input('btnClear', 'n_clicks'),
                Input('btnUpload', 'filename'), Input('btnUpload', 'contents'),
                Input('btnDelete', 'n_clicks'), 
-               State('ddl-delete', 'value'),State('search_file', 'value'),State('ddl-folder','value')])
+               State('search_file', 'value'),State('ddl-folder','value')])
 def display(btnSearch, btnClear,uploaded_filenames, uploaded_file_contents, btnDelete,deleteKey, pattern,selFolder):
     
     context = dash.callback_context
@@ -336,4 +354,4 @@ def display(btnSearch, btnClear,uploaded_filenames, uploaded_file_contents, btnD
     for blob in response['Contents']:
         optionList.append({'label': blob['Key'], 'value': blob['Key']})                        
 
-    return(returnedHtml, returnedToast, optionList)
+    return(returnedHtml, returnedToast)
