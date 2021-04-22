@@ -52,7 +52,7 @@ def layout():
                                     [
                                         html.H2("Search Blob List"),
                                         dcc.Dropdown(
-                                            id="ddl-searchFolder",
+                                            id="ddl-folderSearch",
                                             options=list_folders(),
                                             placeholder="select folder", className = "mb-3",
                                         ),
@@ -135,7 +135,6 @@ def layout():
                 ),
                 html.Div(id="toastContainer"),
                 html.Div(id="FolderToastContainer"),
-                html.Div(id="OutputTest"),
                 dbc.Card(
                     dbc.CardBody(
                         [
@@ -209,17 +208,42 @@ def file_download_link(filename):
         urlquote(filename))
     return html.A(filename, href=location)
 
-def getBlobs(pattern):
+def getBlobs(searchFolder,pattern):
     files = []
+    tempFiles = []
     response = client.list_objects(Bucket=BUCKET)
 
-    if (len(pattern) == 0):
-        for blob in response['Contents']:
-            files.append(blob['Key'])
-    else:
-        for blob in response['Contents']:
-            if (blob['Key'].find(pattern) != -1):
+    if (len(searchFolder) == 0):
+        if (len(pattern) == 0):
+            for blob in response['Contents']:
                 files.append(blob['Key'])
+        else:
+            for blob in response['Contents']:
+                if (blob['Key'].lower().find(pattern.lower()) != -1):
+                    files.append(blob['Key'])
+    else:
+        tempFiles = []
+        if (searchFolder == "root"):
+            for blob in response['Contents']:
+                if (blob['Key'].lower().find("/") == -1):
+                    tempFiles.append(blob['Key'])  
+
+            for blob in tempFiles:
+                if (blob.lower().find(pattern.lower()) != -1):
+                    files.append(blob)                      
+        else:
+            for blob in response['Contents']:
+                if (blob['Key'].lower().find("/") != -1):
+                    if (blob['Key'].lower().find(searchFolder.lower()) != -1):
+                        tempFiles.append(blob['Key']) 
+
+            if (len(pattern) == 0):
+                if (blob['Key'].lower().find("/") != -1):
+                    files = tempFiles
+            else:
+                for blob in tempFiles:
+                    if (blob.lower().find(pattern.lower()) != -1):
+                        files.append(blob)        
 
     return files
 
@@ -236,26 +260,6 @@ def create_folder(n_clicks,value):
                 "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})                  
     
     return returnedToast
-
-
-@app.callback(Output('OutputTest','children'),
-                [Input('ddl-folder','value'),State('ddl-folder','value')])
-
-def select_folder(value,selFolder):
-
-    files = []
-    response = client.list_objects(Bucket=BUCKET)
-
-    if (selFolder == 'root'):
-        for blob in response['Contents']:
-            if (blob['Key'].find('/') == -1):  # No lo encontro
-                files.append(blob['Key'])
-    else:
-        for blob in response['Contents']:
-            if (blob['Key'].find(selFolder) != -1):
-                files.append(blob['Key'])
-    
-    return ''
 
 @app.callback(Output('ddl-delete','options'),
                 [Input('ddl-folderDelete','value'),State('ddl-folderDelete','value')])
@@ -280,20 +284,26 @@ def delete_from_folder(value,selFolder):
               [Input('btnSearch', 'n_clicks'), Input('btnClear', 'n_clicks'),
                Input('btnUpload', 'filename'), Input('btnUpload', 'contents'),
                Input('btnDelete', 'n_clicks'), 
-               State('search_file', 'value'),State('ddl-folder','value')])
-def display(btnSearch, btnClear,uploaded_filenames, uploaded_file_contents, btnDelete,deleteKey, pattern,selFolder):
+               State('ddl-delete', 'value'),State('search_file', 'value'),
+               State('ddl-folder','value'),State('ddl-folderSearch','value')])
+def display(btnSearch, btnClear,uploaded_filenames, uploaded_file_contents, btnDelete,deleteKey, pattern,selFolder,searchFolder):
     
     context = dash.callback_context
 
     buttonClicked = context.triggered[0]['prop_id'].split('.')[0]
     blobCount = 0
 
+    if (searchFolder):
+        folder = searchFolder
+    else:
+        folder = ""
+
     if (buttonClicked == "btnSearch"):
+
         if (pattern):
-
-            foundedBlobs = getBlobs(pattern)
+            foundedBlobs = getBlobs(folder, pattern)
             blobCount = len(foundedBlobs)
-
+    
             if (blobCount > 0):
                 returnedToast = dbc.Toast([html.P(str(blobCount) + " Blobs founded")], header=("Success"), icon="success", dismissable=True, style={
                     "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})
@@ -302,8 +312,7 @@ def display(btnSearch, btnClear,uploaded_filenames, uploaded_file_contents, btnD
                     "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "red", "color": "white"})
         else:
             pattern = ""
-            returnedToast = dbc.Toast([html.P("Information")], header=("Please enter a pattern"), icon="danger", dismissable=True, style={
-                "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "red", "color": "white"})
+            returnedToast = ""
 
     if (buttonClicked == "btnUpload"):
 
@@ -341,7 +350,7 @@ def display(btnSearch, btnClear,uploaded_filenames, uploaded_file_contents, btnD
                 "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "red", "color": "white"})
 
 
-    blobs = getBlobs(pattern)
+    blobs = getBlobs(folder, pattern)
 
     if len(blobs) == 0:
         returnedHtml = [html.Li("No blobs founded!")]
