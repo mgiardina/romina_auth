@@ -238,8 +238,11 @@ def getBlobs(searchFolder,pattern):
                         tempFiles.append(blob['Key']) 
 
             if (len(pattern) == 0):
-                if (blob['Key'].lower().find("/") != -1):
-                    files = tempFiles
+                counter = 0
+                for blob in tempFiles:
+                    if (counter > 0):
+                        files.append(blob)       
+                    counter = counter + 1
             else:
                 for blob in tempFiles:
                     if (blob.lower().find(pattern.lower()) != -1):
