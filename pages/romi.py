@@ -52,16 +52,18 @@ def layout():
                                     [
                                         html.H2("Search Blob List"),
                                         dcc.Dropdown(
-                                            id="ddl-folderSearch",
+                                            id="ddlFolderSearch",
                                             options=list_folders(),
-                                            placeholder="select folder", className = "mb-3",
+                                            placeholder="select folder", className = "mb-3",value= 'root'
                                         ),
                                         dbc.Input(
-                                            id="search_file", type="search", placeholder="Search"),
+                                            id="txtSearch", type="search", placeholder="Search"),
                                         dbc.Button(
                                             "Search", id="btnSearch", color="primary", className="mt-3"),
                                         dbc.Button(
-                                            "Clear", id="btnClear", color="secondary", className="mt-3 ml-3")    
+                                            "Clear", id="btnClear", color="secondary", className="mt-3 ml-3"),
+                                        #html.H2("Current Blob List",className="mt-3"), 
+                                        html.Ul(id="file-list", className="mt-3")        
                                     ],
                                 ), className="mt-3"
                             ), md=12),
@@ -135,14 +137,7 @@ def layout():
                 ),
                 html.Div(id="toastContainer"),
                 html.Div(id="FolderToastContainer"),
-                dbc.Card(
-                    dbc.CardBody(
-                        [
-                            html.H2("Current Blob List"), html.Ul(
-                                id="file-list", children=list_files())
-                        ]
-                    ), className="mt-3"
-                )
+                html.Div(id="toastSearch"),
             ]
         )
     )
@@ -213,7 +208,7 @@ def getBlobs(searchFolder,pattern):
     tempFiles = []
     response = client.list_objects(Bucket=BUCKET)
 
-    if (len(searchFolder) == 0):
+    if (len(searchFolder) == 0):  # valida si selecciono una carpeta
         if (len(pattern) == 0):
             for blob in response['Contents']:
                 files.append(blob['Key'])
@@ -228,7 +223,7 @@ def getBlobs(searchFolder,pattern):
                 if (blob['Key'].lower().find("/") == -1):
                     tempFiles.append(blob['Key'])  
 
-            for blob in tempFiles:
+            for blob in tempFiles:  # tempFiles es la filtrada del folder
                 if (blob.lower().find(pattern.lower()) != -1):
                     files.append(blob)                      
         else:
@@ -283,43 +278,76 @@ def delete_from_folder(value,selFolder):
                     
     return optionList
 
-@app.callback([Output('file-list', 'children'), Output('toastContainer', 'children')],
-              [Input('btnSearch', 'n_clicks'), Input('btnClear', 'n_clicks'),
-               Input('btnUpload', 'filename'), Input('btnUpload', 'contents'),
-               Input('btnDelete', 'n_clicks'), 
-               State('ddl-delete', 'value'),State('search_file', 'value'),
-               State('ddl-folder','value'),State('ddl-folderSearch','value')])
-def display(btnSearch, btnClear,uploaded_filenames, uploaded_file_contents, btnDelete,deleteKey, pattern,selFolder,searchFolder):
-    
+
+@app.callback([Output('file-list', 'children'), Output('toastSearch', 'children'),
+                Output('txtSearch','value'),Output('ddlFolderSearch','value')],
+               [Input('btnSearch', 'n_clicks'),Input('btnClear', 'n_clicks'),
+               State('txtSearch', 'value'),State('ddlFolderSearch','value')])
+def display(btnSearch, btnClear, pattern, searchFolder):
+
     context = dash.callback_context
 
     buttonClicked = context.triggered[0]['prop_id'].split('.')[0]
+
     blobCount = 0
 
-    if (searchFolder):
-        folder = searchFolder
-    else:
-        folder = ""
+    if (searchFolder is None):
+        searchFolder = ""
+
+    if (pattern is None):
+        pattern = ""
+
+    txtSearch = ""
+
+    ddlFolderSearch = "root"
 
     if (buttonClicked == "btnSearch"):
-
-        if (pattern):
-            foundedBlobs = getBlobs(folder, pattern)
+        if(pattern == "" and searchFolder == ""):
+            foundedBlobs = []
+            returnedToast = dbc.Toast([html.P("Please select folder or pattern")], header=("No blobs founded"), icon="danger", dismissable=True, style={
+                "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "red", "color": "white"})
+        else:        
+            txtSearch = pattern
+            ddlFolderSearch = searchFolder
+            foundedBlobs = getBlobs(searchFolder, pattern)
             blobCount = len(foundedBlobs)
-    
             if (blobCount > 0):
                 returnedToast = dbc.Toast([html.P(str(blobCount) + " Blobs founded")], header=("Success"), icon="success", dismissable=True, style={
                     "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})
             else:
                 returnedToast = dbc.Toast([html.P("No Matches")], header=("No blobs founded"), icon="danger", dismissable=True, style={
                     "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "red", "color": "white"})
+
+
+    if (buttonClicked == "btnClear"):
+        foundedBlobs = getBlobs('root', '')
+        returnedToast = dbc.Toast([html.P("Search Cleared")], header=("Success"), icon="success", dismissable=True, style={
+            "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})          
+
+
+
+    if len(foundedBlobs) == 0:
+        if(pattern != "" and searchFolder != ""):
+            returnedHtml = [html.Li("No blobs founded!")]
         else:
-            pattern = ""
-            returnedToast = ""
+            returnedHtml = ""    
+    else:
+        returnedHtml = [html.Li(file_download_link(filename))
+                        for filename in foundedBlobs]        
+
+    return(returnedHtml,returnedToast,txtSearch,ddlFolderSearch)
+
+@app.callback(Output('toastContainer', 'children'),
+              [Input('btnUpload', 'filename'), Input('btnUpload', 'contents'),
+               Input('btnDelete', 'n_clicks'), 
+               State('ddl-delete', 'value'),State('ddl-folder','value')])
+def display(uploaded_filenames, uploaded_file_contents, btnDelete,deleteKey, selFolder):
+    
+    context = dash.callback_context
+
+    buttonClicked = context.triggered[0]['prop_id'].split('.')[0]
 
     if (buttonClicked == "btnUpload"):
-
-            pattern = ""   
             if (selFolder):
                 if uploaded_filenames is not None and uploaded_file_contents is not None:
                     for name, data in zip(uploaded_filenames, uploaded_file_contents):
@@ -337,13 +365,8 @@ def display(btnSearch, btnClear,uploaded_filenames, uploaded_file_contents, btnD
                 returnedToast = dbc.Toast([html.P("You must select a folder")], header=("No folder selected"), icon="danger", dismissable=True, style={
                     "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "red", "color": "white"})
 
-    if (buttonClicked == "btnClear"):
-        pattern = ""   
-        returnedToast = dbc.Toast([html.P("Search Clearer")], header=("Success"), icon="success", dismissable=True, style={
-            "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "green", "color": "white"})          
-    
+
     if (buttonClicked == "btnDelete"):
-        pattern = ""
         if deleteKey:
             client.delete_object(Bucket=BUCKET, Key=deleteKey)
             returnedToast = dbc.Toast([html.P("Blob " + deleteKey + " deleted")], header=("Success"), icon="success", dismissable=True, style={
@@ -351,19 +374,5 @@ def display(btnSearch, btnClear,uploaded_filenames, uploaded_file_contents, btnD
         else:
             returnedToast = dbc.Toast([html.P("You must select a blob")], header=("No blob selected"), icon="danger", dismissable=True, style={
                 "position": "fixed", "top": 66, "right": 20, "width": 350, "background-color": "red", "color": "white"})
-
-
-    blobs = getBlobs(folder, pattern)
-
-    if len(blobs) == 0:
-        returnedHtml = [html.Li("No blobs founded!")]
-    else:
-        returnedHtml = [html.Li(file_download_link(filename))
-                        for filename in blobs]
-
-    optionList = []
-    response = client.list_objects(Bucket=BUCKET)
-    for blob in response['Contents']:
-        optionList.append({'label': blob['Key'], 'value': blob['Key']})                        
-
-    return(returnedHtml, returnedToast)
+             
+    return(returnedToast)
