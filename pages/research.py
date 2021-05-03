@@ -2,6 +2,9 @@ from urllib.parse import quote as urlquote
 from server import app, User, engine
 from functools import wraps
 import time
+import random
+import datetime
+import plotly.express as px
 from flask_login import current_user
 import random
 from dash import no_update
@@ -17,6 +20,10 @@ login_alert = dbc.Alert(
 )
 
 location = dcc.Location(id='research-url', refresh=True)
+
+temp = []
+
+nValues = []
 
 def layout():
     return dbc.Row(
@@ -38,10 +45,28 @@ def layout():
                 dbc.Button('Primary', id='btnPrimary', color="primary", className="mr-1"),
                 dbc.Button('Warning', id='btnWarning', color="warning", className="mr-1"),
                 dbc.Button('Danger', id='btnDanger', color="danger"),
-                html.Div(id='htmlContainer', className="mt-4")
+                html.Div(id='htmlContainer', className="mt-4"),
+                dcc.Graph(id='live-update-graph'),
+                dcc.Interval(id='interval-component',interval=1*2000,n_intervals=0)
             ]
         )
     )
+
+@app.callback(Output('live-update-graph', 'figure'),
+              Input('interval-component', 'n_intervals'))
+def update_figure(n):
+
+    values = round(random.uniform(10.0, 20.0), 1)    
+
+    temp.append(values) 
+
+    nValues.append(n)    
+
+    fig = px.line(x=nValues,y=temp)
+    
+    return(fig)
+
+
 
 @app.callback(Output('htmlContainer', 'children'),
               [Input('btnPrimary', 'n_clicks'),
